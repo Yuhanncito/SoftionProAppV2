@@ -1,68 +1,64 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { Longinn } from '../app/index'; // Asegúrate de que la ruta sea correcta
-import { useRouter } from 'expo-router';
 import { Provider } from 'react-native-paper';
+import { useRouter } from 'expo-router';
 
-// Mocks de dependencias
+// Mock de useRouter
 jest.mock('expo-router', () => ({
   useRouter: jest.fn(),
 }));
 
-// Mock de `Provider` de react-native-paper para evitar errores
+// Mock de Provider
 jest.mock('react-native-paper', () => {
-  const { View, Text } = require('react-native');
+  const { View } = require('react-native');
   return {
     Provider: ({ children }) => <View>{children}</View>,
-    Portal: ({ children }) => <View>{children}</View>,
-    Modal: ({ visible, children }) => (visible ? <View>{children}</View> : null),
   };
 });
 
-describe('Longinn renderizado', () => {
+// Mock de console.log para evitar errores
+jest.spyOn(console, 'log').mockImplementation(() => {});
+
+describe('Longinn Component', () => {
   const mockPush = jest.fn();
 
   beforeEach(() => {
-    // Configura el mock de useRouter para devolver push
     useRouter.mockReturnValue({
       push: mockPush,
     });
-    jest.clearAllMocks(); // Limpia los mocks antes de cada prueba
+    jest.clearAllMocks();
   });
 
-  it('debería renderizar correctamente el componente de Longinn', () => {
-    const { getByText, getByPlaceholderText } = render(
+  it('renders correctly', () => {
+    const { getByText, getByTestId } = render(
       <Provider>
         <Longinn />
       </Provider>
     );
 
-    // Verificar que el título y campos se rendericen correctamente
+    // Verificar textos visibles
     expect(getByText('Longinnn')).toBeTruthy();
     expect(getByText('Correo electrónicoc')).toBeTruthy();
     expect(getByText('Contraseñaa')).toBeTruthy();
-    expect(getByText('Iniciar Sesiónn')).toBeTruthy();
-    expect(getByPlaceholderText('Ingrese su correoo')).toBeTruthy();
-    expect(getByPlaceholderText('Ingrese su contraseñaa')).toBeTruthy();
+
+    // Verificar elementos con testID
+    expect(getByTestId('email-input')).toBeTruthy();
+    expect(getByTestId('password-input')).toBeTruthy();
+    expect(getByTestId('login-button')).toBeTruthy();
   });
 
-  it('debería llamar a la función onPress del botón Iniciar Sesiónn', () => {
-    const { getByText } = render(
+  it('calls the button onPress handler', () => {
+    const { getByTestId } = render(
       <Provider>
         <Longinn />
       </Provider>
     );
 
-    // Mock de console.log
-    const consoleLogSpy = jest.spyOn(console, 'log');
-
-    const button = getByText('Iniciar Sesiónn');
+    const button = getByTestId('login-button');
     fireEvent.press(button);
 
-    // Verificar que console.log fue llamado con 'Iniciar sesión'
-    expect(consoleLogSpy).toHaveBeenCalledWith('Iniciar sesión');
-
-    // Restaurar console.log después de la prueba
-    consoleLogSpy.mockRestore();
+    // Validar que console.log fue llamado
+    expect(console.log).toHaveBeenCalledWith('Iniciar sesión');
   });
 });

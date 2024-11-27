@@ -23,7 +23,7 @@ const index = () => {
   const [count, setCount] = useState(3);
   const [countIntent, setCountIntent] = useState(1);
 
- 
+
 
   const [visible, setVisible] = useState(false); // Controla el modal
   const [modalMessage, setModalMessage] = useState(''); // Mensaje del modal
@@ -336,6 +336,7 @@ export const Longinn = () => {
         placeholder="Ingrese su correoo"
         value={email}
         onChangeText={setEmail}
+        testID="email-input"
       />
 
       <Text>Contraseñaa</Text>
@@ -344,9 +345,15 @@ export const Longinn = () => {
         value={password}
         onChangeText={setPassword}
         secureTextEntry
+        testID="password-input"
       />
 
-      <Button title="Iniciar Sesiónn" onPress={() => console.log('Iniciar sesión')} />
+      <Button
+        title="Iniciar Sesiónn"
+        onPress={() => console.log('Iniciar sesión')}
+        testID="login-button"
+      />
     </View>
   );
 };
+
