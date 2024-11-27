@@ -173,3 +173,7 @@ jobs:
             WEB_SERVICE_URL: "https://labarbada.store/subirImagen.php"
             API_URL: "https://softion-api-v3.vercel.app/api/"  # Cambia por la URL de tu API
             PROJECT_NAME: "SoftionPro"  # Cambia este valor por el nombre de tu proyecto
+
+
+
+            
