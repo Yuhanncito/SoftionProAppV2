@@ -1,39 +1,67 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/useColorScheme';
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
+import React, { useEffect, useState } from 'react';
+import { View } from 'react-native';
+import { Stack, router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
+  const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState(null);
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
+    const checkToken = async () => {
+      try {
+        const storedToken = await AsyncStorage.getItem('authToken');
+        if (storedToken) {
+          setToken(storedToken);
+          router.push('/(home)/Hom'); // Redirigir al home si el token existe
+        } else {
+          router.push('/'); // Si no hay token, redirigir al login
+        }
+      } catch (error) {
+        console.log('Error al verificar el token:', error);
+        router.push('/'); // Manejo de errores
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  if (!loaded) {
-    return null;
+    checkToken();
+  }, []);
+
+  // Renderizar nada mientras se verifica el token
+  if (loading) {
+    return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }} />;
   }
 
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
-  );
+  return token ? <StackPrivate /> : <StactPublic />;
 }
+
+const StactPublic = () => {
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="verify-email" />
+      <Stack.Screen
+        name="register"
+        options={{
+          headerShown: true,
+          headerTitle: 'Registro',
+          headerTitleAlign: 'center',
+          headerStyle: { backgroundColor: '#007AFF' },
+          headerTintColor: '#fff',
+        }}
+      />
+      <Stack.Screen name="ForgotPassword" />
+      <Stack.Screen name="VeryfyQuestion" />
+      <Stack.Screen name="RestorePassword" />
+    </Stack>
+  );
+};
+
+const StackPrivate = () => {
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(home)/Hom" />
+    </Stack>
+  );
+};
