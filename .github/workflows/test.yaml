@@ -13,163 +13,63 @@ on:
       - hotfix/*
 
 jobs:
-  setup:
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-      issues: write
     steps:
-      - name: Checkout Código
-        uses: actions/checkout@v4.2.1
+      # 1. Checkout del código
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Configurar Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '16'  # Actualizado a la versión 16
+      # 2. Instalación de EAS CLI (Expo Application Services)
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
 
-      - name: Configurar Caché
-        uses: actions/cache@v2
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
-
-      - name: Instalar Dependencias
+      # 3. Instalación de dependencias
+      - name: Install dependencies
         run: npm install
 
-      - name: Comentar en PR
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v4
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.issues.createComment({
-              issue_number: context.payload.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: 'Se han realizado cambios en este PR. Por favor, revisen.'
-            })
-
-  run-tests: 
-    runs-on: ubuntu-latest 
-    needs: [setup] 
-    steps: 
-      - name: Checkout Código 
-        uses: actions/checkout@v2 
-
-      - name: Configurar Node.js 
-        uses: actions/setup-node@v2 
-        with: 
-          node-version: '16' 
-
-      - name: Instalar Dependencias 
-        run: npm install 
-
-      - name: Instalar jest-expo globalmente
-        run: npm install -g jest-expo
-
-      # Ejecutar las pruebas
-      - name: Ejecutar Pruebas
-        run: npm test
-
-      # Forzar finalización de procesos de Jest
-      - name: Finalizar Proceso de Jest
+      # 4. Construcción para Android
+      - name: Build APK for Android
+        run: npx eas-cli build --platform android --profile preview --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}  # Asegúrate de configurar EXPO_TOKEN en GitHub Secrets.
+  
+      # 5. Obtener URL del artefacto y subir imagen
+      - name: Upload image and send data to API
         run: |
-          echo "Finalizando proceso de Jest"
-          kill $(ps aux | grep '[j]est' | awk '{print $2}') || true
+          # Obtener URL del artefacto
+          RESPONSE=$(eas build:list --limit=1 --status=finished --json --non-interactive)
+          DOWNLOAD_URL=$(echo "$RESPONSE" | jq -r '.[0].artifacts.buildUrl')
 
+          echo "La URL del artefacto obtenida es: $DOWNLOAD_URL"
 
-  notify-on-success:
-    runs-on: ubuntu-latest
-    needs: [build]
-    if: success()  # Solo se ejecuta si run-tests tuvo éxito
-    steps:
-      - name: Notificar Éxito
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          username: ${{ secrets.GMAIL_ADDRESS }}
-          password: ${{ secrets.GMAIL_APP_PASSWORD }}
-          subject: El repositorio ha pasado las pruebas correctamente.
-          body: El repositorio ha superado las pruebas correctamente. Puedes ver los detalles en https://github.com/${{ github.repository }}/actions?query=workflow%3A${{ github.workflow }}+event%3A${{ github.event_name }}
-          to: ${{ secrets.GMAIL_ADDRESS_RECIPIENT }}
-          from: ${{ secrets.GMAIL_ADDRESS }}
+          # Verificar si la imagen existe
+          if [ ! -f "$IMAGE_PATH" ]; then
+            echo "La imagen no existe en la ruta especificada: $IMAGE_PATH"
+            exit 1
+          fi
 
-  notify-on-failure:
-    runs-on: ubuntu-latest
-    needs: [build]
-    if: failure()  # Solo se ejecuta si run-tests falla
-    steps:
-      - name: Notificar Error
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          username: ${{ secrets.GMAIL_ADDRESS }}
-          password: ${{ secrets.GMAIL_APP_PASSWORD }}
-          subject: El repositorio ha fallado en las pruebas.
-          body: El repositorio ha fallado en las pruebas. Puedes ver los detalles en https://github.com/${{ github.repository }}/actions?query=workflow%3A${{ github.workflow }}+event%3A${{ github.event_name }}
-          to: ${{ secrets.GMAIL_ADDRESS_RECIPIENT }}
-          from: ${{ secrets.GMAIL_ADDRESS }}
+          # Obtener solo el nombre del archivo desde la ruta completa
+          IMAGE_NAME=$(basename "$IMAGE_PATH")
+          echo "El nombre del icono es: $IMAGE_NAME"
 
-  build:
-      runs-on: ubuntu-latest
-      needs:  [run-tests]
-      steps:
-        # 1. Checkout del código
-        - name: Checkout code
-          uses: actions/checkout@v3
+          # Subir la imagen al servidor PHP
+          curl -X POST \
+            -F "imagen=@$IMAGE_PATH" \
+            "$WEB_SERVICE_URL"
 
-        # 2. Instalación de EAS CLI (Expo Application Services)
-        - name: Install EAS CLI
-          run: npm install -g eas-cli
+          # Enviar datos a la API de Express
+          curl -X POST "$API_URL" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "url": "'"$DOWNLOAD_URL"'",
+              "nombre": "'"$PROJECT_NAME"'",
+              "icono": "'"$IMAGE_NAME"'"
+            }'
 
-        # 3. Instalación de dependencias
-        - name: Install dependencies
-          run: npm install
-
-        # 4. Construcción para Android
-        - name: Build APK for Android
-          run: npx eas-cli build --platform android --profile preview --non-interactive
-          env:
-            EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}  # Asegúrate de configurar EXPO_TOKEN en GitHub Secrets.
- 
-        # 5. Obtener URL del artefacto y subir imagen
-        - name: Upload image and send data to API
-          run: |
-            # Obtener URL del artefacto
-            RESPONSE=$(eas build:list --limit=1 --status=finished --json --non-interactive)
-            DOWNLOAD_URL=$(echo "$RESPONSE" | jq -r '.[0].artifacts.buildUrl')
-
-            echo "La URL del artefacto obtenida es: $DOWNLOAD_URL"
-
-            # Verificar si la imagen existe
-            if [ ! -f "$IMAGE_PATH" ]; then
-              echo "La imagen no existe en la ruta especificada: $IMAGE_PATH"
-              exit 1
-            fi
-
-            # Obtener solo el nombre del archivo desde la ruta completa
-            IMAGE_NAME=$(basename "$IMAGE_PATH")
-            echo "El nombre del icono es: $IMAGE_NAME"
-
-            # Subir la imagen al servidor PHP
-            curl -X POST \
-              -F "imagen=@$IMAGE_PATH" \
-              "$WEB_SERVICE_URL"
-
-            # Enviar datos a la API de Express
-            curl -X POST "$API_URL" \
-              -H "Content-Type: application/json" \
-              -d '{
-                "url": "'"$DOWNLOAD_URL"'",
-                "nombre": "'"$PROJECT_NAME"'",
-                "icono": "'"$IMAGE_NAME"'"
-              }'
-
-          env:
-            EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-            IMAGE_PATH: "./Imagen1.png"  # Cambia esto a la ruta de tu icono
-            WEB_SERVICE_URL: "https://labarbada.store/subirImagen.php"
-            API_URL: "https://softion-api-v3.vercel.app/api/"  # Cambia por la URL de tu API
-            PROJECT_NAME: "SoftionPro"  # Cambia este valor por el nombre de tu proyecto
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          IMAGE_PATH: "./Imagen1.png"  # Cambia esto a la ruta de tu icono
+          WEB_SERVICE_URL: "https://labarbada.store/subirImagen.php"
+          API_URL: "https://softion-api-v3.vercel.app/api/"  # Cambia por la URL de tu API
+          PROJECT_NAME: "SoftionPro"  # Cambia este valor por el nombre de tu proyecto
