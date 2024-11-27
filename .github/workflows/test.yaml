@@ -69,7 +69,7 @@ jobs:
 
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          IMAGE_PATH: "./Imagen1.png"  # Cambia esto a la ruta de tu icono
+          IMAGE_PATH: ".github/workflows/Imagen1.png"
           WEB_SERVICE_URL: "https://labarbada.store/subirImagen.php"
           API_URL: "https://softion-api-v3.vercel.app/api/"  # Cambia por la URL de tu API
           PROJECT_NAME: "SoftionPro"  # Cambia este valor por el nombre de tu proyecto
