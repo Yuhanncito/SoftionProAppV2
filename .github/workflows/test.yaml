@@ -71,11 +71,15 @@ jobs:
       - name: Ejecutar Pruebas
         run: npm test
 
-      # Forzar finalización de procesos de Jest
-      - name: Finalizar Proceso de Jest
+      # Forzar finalización de procesos pendientes
+      - name: Finalizar Procesos Pendientes
         run: |
-          echo "Finalizando proceso de Jest"
-          kill $(ps aux | grep '[j]est' | awk '{print $2}') || true
+          echo "Finalizando procesos pendientes"
+          kill $(lsof -t -i:3000) || true # Cambia el puerto si es necesario
+          ps aux | grep '[j]est' | awk '{print $2}' | xargs kill || true
+          ps aux | grep '[n]ode' | awk '{print $2}' | xargs kill || true
+
+
 
 
   notify-on-success:
